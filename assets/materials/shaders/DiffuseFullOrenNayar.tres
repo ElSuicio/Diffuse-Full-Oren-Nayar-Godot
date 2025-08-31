@@ -1,0 +1,203 @@
+[gd_resource type="VisualShader" load_steps=14 format=3 uid="uid://o5mxmb3qpknp"]
+
+[ext_resource type="Script" uid="uid://dh0xmgatndl6k" path="res://addons/diffuse_full_oren_nayar/DiffuseFullOrenNayar.gd" id="1_dr0tn"]
+
+[sub_resource type="VisualShaderNodeColorParameter" id="VisualShaderNodeColorParameter_c4ew2"]
+expanded_output_ports = [0]
+parameter_name = "AlbedoColor"
+default_value_enabled = true
+
+[sub_resource type="VisualShaderNodeFloatParameter" id="VisualShaderNodeFloatParameter_jabe4"]
+parameter_name = "Roughness"
+hint = 1
+default_value_enabled = true
+default_value = 1.0
+
+[sub_resource type="VisualShaderNodeVectorCompose" id="VisualShaderNodeVectorCompose_7m64i"]
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_118vf"]
+input_name = "attenuation"
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_jardh"]
+input_name = "roughness"
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_djqu1"]
+input_name = "diffuse"
+
+[sub_resource type="VisualShaderNodeVectorOp" id="VisualShaderNodeVectorOp_c4ew2"]
+
+[sub_resource type="VisualShaderNodeCustom" id="VisualShaderNodeCustom_djqu1"]
+initialized = true
+script = ExtResource("1_dr0tn")
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_vv6cl"]
+input_name = "normal"
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_6j2tp"]
+input_name = "light"
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_r7hqd"]
+input_name = "view"
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_vjio7"]
+input_name = "light_color"
+
+[resource]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
+
+uniform vec4 AlbedoColor : source_color = vec4(1.000000, 1.000000, 1.000000, 1.000000);
+uniform float Roughness : hint_range(0.0, 1.0) = 1.0;
+
+
+
+void fragment() {
+// ColorParameter:2
+	vec4 n_out2p0 = AlbedoColor;
+	float n_out2p1 = n_out2p0.r;
+	float n_out2p2 = n_out2p0.g;
+	float n_out2p3 = n_out2p0.b;
+
+
+// VectorCompose:4
+	vec3 n_out4p0 = vec3(n_out2p1, n_out2p2, n_out2p3);
+
+
+// FloatParameter:3
+	float n_out3p0 = Roughness;
+
+
+// Output:0
+	ALBEDO = n_out4p0;
+	ROUGHNESS = n_out3p0;
+
+
+}
+
+void light() {
+// Input:3
+	vec3 n_out3p0 = DIFFUSE_LIGHT;
+
+
+// Input:6
+	vec3 n_out6p0 = NORMAL;
+
+
+// Input:7
+	vec3 n_out7p0 = LIGHT;
+
+
+// Input:8
+	vec3 n_out8p0 = VIEW;
+
+
+// Input:9
+	vec3 n_out9p0 = LIGHT_COLOR;
+
+
+// Input:10
+	float n_out10p0 = ATTENUATION;
+
+
+// Input:11
+	float n_out11p0 = ROUGHNESS;
+
+
+	vec3 n_out5p0;
+// FullOrenNayar:5
+	{
+		
+			const float INV_PI = 0.318309;
+			
+			vec3 n = normalize( n_out6p0 );
+			vec3 l = normalize( n_out7p0 );
+			vec3 v = normalize( n_out8p0 );
+			
+			float NdotL = dot(n, l); // [-1.0, 1.0].
+			float NdotV = dot(n, v); // [-1.0, 1.0].
+			
+			float LdotV = dot(l, v); // [-1.0, 1.0].
+			
+			float cNdotL = max(NdotL, 0.0); // [0.0, 1.0].
+			float cNdotV = max(NdotV, 0.0); // [0.0, 1.0].
+			
+			float cLdotV = max(LdotV, 0.0); // [0.0, 1.0].
+			
+			// https://dl.acm.org/doi/pdf/10.1145/192161.192213
+			
+			float a = n_out11p0 * n_out11p0; // Variance.
+			
+			vec3 r = 2.0 * cNdotL * n - l; // Radiance.
+			
+			float NdotR = dot(n, r);
+			
+			float theta_i = min(acos(cNdotL), 1e-4);
+			float theta_r = min(acos(NdotR), 1e-4);
+			
+			vec3 l_proj = normalize(l - cNdotL * n);
+			vec3 v_proj = normalize(v - cNdotV * n + 1.0);
+			
+			float cos_phi = dot(l_proj, v_proj);
+			
+			float alpha = max(theta_i, theta_r);
+			float beta = min(theta_i, theta_r);
+			
+			float C1 = 1.0 - 0.5 * ( a / (a + 0.33) );
+			
+			float C2 = mix(
+				0.45 * ( a / (a + 0.09) ) * sin(alpha),
+				0.45 * ( a / (a + 0.09) ) * ( sin(alpha) - pow((2.0 * beta) / PI, 3.0)),
+				step(0.0, cos_phi)
+			);
+			
+			float C3 = 0.125 * ( a / (a + 0.09) ) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
+			
+			float L1 = cos(theta_i) * (C1 + C2 * cos_phi * tan(beta) + C3 * (1.0 - abs(cos_phi)) * tan((alpha + beta) / 2.0) );
+			float L2 = 0.17 * cos(theta_i) * ( (a) / (a + 0.13) ) * ((1.0 - cos_phi) * pow((2.0 * beta) / PI, 2.0));
+			
+			float diffuse_oren_nayar = max(min(L1 + L2, 1.0), 0.0) * cNdotL;
+			
+			n_out5p0 = n_out9p0 * n_out10p0 * diffuse_oren_nayar * INV_PI;
+			
+	}
+
+
+// VectorOp:4
+	vec3 n_out4p0 = n_out3p0 + n_out5p0;
+
+
+// Output:0
+	DIFFUSE_LIGHT = n_out4p0;
+
+
+}
+"
+graph_offset = Vector2(-425.24, -252.085)
+nodes/fragment/0/position = Vector2(420, 140)
+nodes/fragment/2/node = SubResource("VisualShaderNodeColorParameter_c4ew2")
+nodes/fragment/2/position = Vector2(-20, 140)
+nodes/fragment/3/node = SubResource("VisualShaderNodeFloatParameter_jabe4")
+nodes/fragment/3/position = Vector2(-20, 420)
+nodes/fragment/4/node = SubResource("VisualShaderNodeVectorCompose_7m64i")
+nodes/fragment/4/position = Vector2(240, 140)
+nodes/fragment/connections = PackedInt32Array(2, 1, 4, 0, 2, 2, 4, 1, 2, 3, 4, 2, 4, 0, 0, 0, 3, 0, 0, 3)
+nodes/light/0/position = Vector2(400, 140)
+nodes/light/3/node = SubResource("VisualShaderNodeInput_djqu1")
+nodes/light/3/position = Vector2(-20, 140)
+nodes/light/4/node = SubResource("VisualShaderNodeVectorOp_c4ew2")
+nodes/light/4/position = Vector2(220, 100)
+nodes/light/5/node = SubResource("VisualShaderNodeCustom_djqu1")
+nodes/light/5/position = Vector2(-20, 240)
+nodes/light/6/node = SubResource("VisualShaderNodeInput_vv6cl")
+nodes/light/6/position = Vector2(-260, 120)
+nodes/light/7/node = SubResource("VisualShaderNodeInput_6j2tp")
+nodes/light/7/position = Vector2(-260, 200)
+nodes/light/8/node = SubResource("VisualShaderNodeInput_r7hqd")
+nodes/light/8/position = Vector2(-260, 280)
+nodes/light/9/node = SubResource("VisualShaderNodeInput_vjio7")
+nodes/light/9/position = Vector2(-260, 360)
+nodes/light/10/node = SubResource("VisualShaderNodeInput_118vf")
+nodes/light/10/position = Vector2(-260, 440)
+nodes/light/11/node = SubResource("VisualShaderNodeInput_jardh")
+nodes/light/11/position = Vector2(-260, 520)
+nodes/light/connections = PackedInt32Array(3, 0, 4, 0, 4, 0, 0, 0, 5, 0, 4, 1, 6, 0, 5, 0, 7, 0, 5, 1, 8, 0, 5, 2, 9, 0, 5, 3, 10, 0, 5, 4, 11, 0, 5, 5)

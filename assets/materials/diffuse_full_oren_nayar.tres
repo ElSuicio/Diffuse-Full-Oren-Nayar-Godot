@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://dqgyyup5hpcyx"]
+
+[ext_resource type="Shader" uid="uid://o5mxmb3qpknp" path="res://assets/materials/shaders/DiffuseFullOrenNayar.tres" id="1_rusjx"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_rusjx")
+shader_parameter/AlbedoColor = Color(1, 1, 1, 1)
+shader_parameter/Roughness = 1.0
