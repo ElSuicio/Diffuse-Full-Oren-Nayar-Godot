@@ -1,6 +1,6 @@
 [gd_resource type="VisualShader" load_steps=14 format=3 uid="uid://o5mxmb3qpknp"]
 
-[ext_resource type="Script" uid="uid://ckrnxkgqmmp44" path="res://addons/diffuse_full_oren_nayar/DiffuseFullOrenNayar.gd" id="1_dr0tn"]
+[ext_resource type="Script" uid="uid://cta56bgnjrapf" path="res://addons/diffuse_full_oren_nayar/DiffuseFullOrenNayar.gd" id="1_dr0tn"]
 
 [sub_resource type="VisualShaderNodeColorParameter" id="VisualShaderNodeColorParameter_c4ew2"]
 expanded_output_ports = [0]
