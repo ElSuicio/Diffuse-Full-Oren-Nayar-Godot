@@ -15,7 +15,7 @@ func _get_category() -> String:
 	return "Lightning/Diffuse"
 
 func _get_description() -> String:
-	return "Oren-Nayar Diffuse Reflectance Model."
+	return "Full Oren-Nayar Diffuse Reflectance Model."
 
 func _get_return_icon_type() -> PortType:
 	return VisualShaderNode.PORT_TYPE_VECTOR_3D
@@ -28,7 +28,7 @@ func _is_available(mode : Shader.Mode, type : VisualShader.Type) -> bool:
 
 #region Input
 func _get_input_port_count() -> int:
-	return 6
+	return 7
 
 func _get_input_port_name(port : int) -> String:
 	match port:
@@ -43,7 +43,9 @@ func _get_input_port_name(port : int) -> String:
 		4:
 			return "Attenuation"
 		5:
-			return "Roughness"
+			return "rho"
+		6:
+			return "sigma"
 	
 	return ""
 
@@ -60,9 +62,20 @@ func _get_input_port_type(port : int) -> PortType:
 		4:
 			return PORT_TYPE_SCALAR # Attenuation.
 		5:
-			return PORT_TYPE_SCALAR # Roughness.
+			return PORT_TYPE_SCALAR # rho.
+		6:
+			return PORT_TYPE_SCALAR # sigma.
 	
 	return PORT_TYPE_SCALAR
+
+func _get_input_port_default_value(port : int) -> Variant:
+	match port:
+		5:
+			return 0.9 # rho.
+		6:
+			return 30.0 # sigma.
+	
+	return
 
 #endregion
 
@@ -85,7 +98,6 @@ func _get_code(input_vars : Array[String], output_vars : Array[String], _mode : 
 		"VIEW",
 		"LIGHT_COLOR",
 		"ATTENUATION",
-		"ROUGHNESS"
 		]
 	
 	for i in range(0, input_vars.size(), 1):
@@ -93,57 +105,48 @@ func _get_code(input_vars : Array[String], output_vars : Array[String], _mode : 
 			input_vars[i] = default_vars[i]
 	
 	var shader : String = """
-	const float INV_PI = 0.318309;
-	
 	vec3 n = normalize( {normal} );
 	vec3 l = normalize( {light} );
 	vec3 v = normalize( {view} );
 	
-	float NdotL = dot(n, l); // [-1.0, 1.0].
-	float NdotV = dot(n, v); // [-1.0, 1.0].
-	
-	float LdotV = dot(l, v); // [-1.0, 1.0].
-	
-	float cNdotL = max(NdotL, 0.0); // [0.0, 1.0].
-	float cNdotV = max(NdotV, 0.0); // [0.0, 1.0].
-	
-	float cLdotV = max(LdotV, 0.0); // [0.0, 1.0].
+	float cNdotL = max(dot(n, l), 0.0);
+	float cNdotV = max(dot(n, v), 0.0);
 	
 	// https://dl.acm.org/doi/pdf/10.1145/192161.192213
 	
-	float a = {roughness} * {roughness}; // Variance.
+	float a = pow({sigma} * PI / 180.0, 2.0);
 	
-	vec3 r = 2.0 * cNdotL * n - l; // Radiance.
+	float theta_i = acos(cNdotL);
+	float theta_r = acos(cNdotV);
 	
-	float NdotR = dot(n, r);
+	vec3 l_proj = normalize(l - n * cNdotL);
+	vec3 v_proj = normalize(v - n * cNdotV);
 	
-	float theta_i = min(acos(cNdotL), 1e-4);
-	float theta_r = min(acos(NdotR), 1e-4);
-	
-	vec3 l_proj = normalize(l - cNdotL * n);
-	vec3 v_proj = normalize(v - cNdotV * n + 1.0);
-	
-	float cos_phi = dot(l_proj, v_proj);
+	float cos_phi = dot(v_proj, l_proj);
 	
 	float alpha = max(theta_i, theta_r);
 	float beta = min(theta_i, theta_r);
 	
-	float C1 = 1.0 - 0.5 * ( a / (a + 0.33) );
+	float C1 = 1.0 - 0.5 *  a / (a + 0.33);
 	
-	float C2 = mix(
-		0.45 * ( a / (a + 0.09) ) * sin(alpha),
-		0.45 * ( a / (a + 0.09) ) * ( sin(alpha) - pow((2.0 * beta) / PI, 3.0)),
-		step(0.0, cos_phi)
-	);
+	float C2 = 0.45 * a / (a + 0.09);
+	if(cos_phi >= 0.0)
+	{
+		C2 *= sin(alpha);
+	}
+	else
+	{
+		C2 *= sin(alpha) - pow( 2.0 * beta / PI, 3.0);
+	}
 	
-	float C3 = 0.125 * ( a / (a + 0.09) ) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
+	float C3 = 0.125 * a / (a + 0.09) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
 	
-	float L1 = cos(theta_i) * (C1 + C2 * cos_phi * tan(beta) + C3 * (1.0 - abs(cos_phi)) * tan((alpha + beta) / 2.0) );
-	float L2 = 0.17 * cos(theta_i) * ( (a) / (a + 0.13) ) * ((1.0 - cos_phi) * pow((2.0 * beta) / PI, 2.0));
+	float L1 = {rho} / PI * (C1 + cos_phi * C2 * tan(beta) + (1.0 - abs(cos_phi)) * C3 * tan((alpha + beta) / 2.0));
+	float L2 = 0.17 * {rho} * {rho} / PI * a / (a + 0.13) * (1.0 - cos_phi * (4.0 * beta * beta) / (PI * PI));
 	
 	float diffuse_oren_nayar = max(min(L1 + L2, 1.0), 0.0) * cNdotL;
 	
-	{output} = {light_color} * {attenuation} * diffuse_oren_nayar * INV_PI;
+	{output} = {light_color} * {attenuation} * diffuse_oren_nayar;
 	"""
 	
 	return shader.format({
@@ -152,6 +155,7 @@ func _get_code(input_vars : Array[String], output_vars : Array[String], _mode : 
 		"view" : input_vars[2],
 		"light_color" : input_vars[3],
 		"attenuation" : input_vars[4],
-		"roughness" : input_vars[5],
+		"rho" : input_vars[5],
+		"sigma" : input_vars[6],
 		"output" : output_vars[0]
 		})
