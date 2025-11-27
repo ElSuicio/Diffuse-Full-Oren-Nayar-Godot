@@ -1,6 +1,6 @@
 [gd_resource type="VisualShader" load_steps=14 format=3 uid="uid://o5mxmb3qpknp"]
 
-[ext_resource type="Script" uid="uid://cta56bgnjrapf" path="res://addons/diffuse_full_oren_nayar/DiffuseFullOrenNayar.gd" id="1_dr0tn"]
+[ext_resource type="Script" uid="uid://ckrnxkgqmmp44" path="res://addons/diffuse_full_oren_nayar/DiffuseFullOrenNayar.gd" id="1_dr0tn"]
 
 [sub_resource type="VisualShaderNodeColorParameter" id="VisualShaderNodeColorParameter_c4ew2"]
 expanded_output_ports = [0]
@@ -123,7 +123,7 @@ void light() {
 			
 			// https://dl.acm.org/doi/pdf/10.1145/192161.192213
 			
-			float a = pow(n_out13p0 * PI / 180.0, 2.0);
+			float sigma2 = pow(n_out13p0 * PI / 180.0, 2.0);
 			
 			float theta_i = acos(cNdotL);
 			float theta_r = acos(cNdotV);
@@ -136,9 +136,9 @@ void light() {
 			float alpha = max(theta_i, theta_r);
 			float beta = min(theta_i, theta_r);
 			
-			float C1 = 1.0 - 0.5 *  a / (a + 0.33);
+			float C1 = 1.0 - 0.5 * sigma2 / (sigma2 + 0.33);
 			
-			float C2 = 0.45 * a / (a + 0.09);
+			float C2 = 0.45 * sigma2 / (sigma2 + 0.09);
 			if(cos_phi >= 0.0)
 			{
 				C2 *= sin(alpha);
@@ -148,10 +148,10 @@ void light() {
 				C2 *= sin(alpha) - pow( 2.0 * beta / PI, 3.0);
 			}
 			
-			float C3 = 0.125 * a / (a + 0.09) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
+			float C3 = 0.125 * sigma2 / (sigma2 + 0.09) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
 			
 			float L1 = n_out12p0 / PI * (C1 + cos_phi * C2 * tan(beta) + (1.0 - abs(cos_phi)) * C3 * tan((alpha + beta) / 2.0));
-			float L2 = 0.17 * n_out12p0 * n_out12p0 / PI * a / (a + 0.13) * (1.0 - cos_phi * (4.0 * beta * beta) / (PI * PI));
+			float L2 = 0.17 * n_out12p0 * n_out12p0 / PI * sigma2 / (sigma2 + 0.13) * (1.0 - cos_phi * (4.0 * beta * beta) / (PI * PI));
 			
 			float diffuse_oren_nayar = max(min(L1 + L2, 1.0), 0.0) * cNdotL;
 			
@@ -197,4 +197,4 @@ nodes/light/13/node = SubResource("VisualShaderNodeFloatParameter_0u7vv")
 nodes/light/13/position = Vector2(-280, 720)
 nodes/light/14/node = SubResource("VisualShaderNodeCustom_icu2l")
 nodes/light/14/position = Vector2(-20, 220)
-nodes/light/connections = PackedInt32Array(3, 0, 4, 0, 4, 0, 0, 0, 14, 0, 4, 1, 12, 0, 14, 5, 13, 0, 14, 6, 10, 0, 14, 4, 9, 0, 14, 3, 8, 0, 14, 2, 7, 0, 14, 1, 6, 0, 14, 0)
+nodes/light/connections = PackedInt32Array(3, 0, 4, 0, 14, 0, 4, 1, 12, 0, 14, 5, 13, 0, 14, 6, 10, 0, 14, 4, 9, 0, 14, 3, 8, 0, 14, 2, 7, 0, 14, 1, 6, 0, 14, 0, 4, 0, 0, 0)
