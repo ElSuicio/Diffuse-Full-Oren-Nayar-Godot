@@ -6,5 +6,5 @@
 render_priority = 0
 shader = ExtResource("1_rusjx")
 shader_parameter/AlbedoColor = Color(1, 1, 1, 1)
-shader_parameter/rho = 0.999999977648
-shader_parameter/sigma = 90.0
+shader_parameter/rho = 0.9
+shader_parameter/sigma = 30.0
