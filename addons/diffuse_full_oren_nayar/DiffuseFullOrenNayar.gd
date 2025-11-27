@@ -114,7 +114,7 @@ func _get_code(input_vars : Array[String], output_vars : Array[String], _mode : 
 	
 	// https://dl.acm.org/doi/pdf/10.1145/192161.192213
 	
-	float a = pow({sigma} * PI / 180.0, 2.0);
+	float sigma2 = pow({sigma} * PI / 180.0, 2.0);
 	
 	float theta_i = acos(cNdotL);
 	float theta_r = acos(cNdotV);
@@ -127,9 +127,9 @@ func _get_code(input_vars : Array[String], output_vars : Array[String], _mode : 
 	float alpha = max(theta_i, theta_r);
 	float beta = min(theta_i, theta_r);
 	
-	float C1 = 1.0 - 0.5 *  a / (a + 0.33);
+	float C1 = 1.0 - 0.5 * sigma2 / (sigma2 + 0.33);
 	
-	float C2 = 0.45 * a / (a + 0.09);
+	float C2 = 0.45 * sigma2 / (sigma2 + 0.09);
 	if(cos_phi >= 0.0)
 	{
 		C2 *= sin(alpha);
@@ -139,10 +139,10 @@ func _get_code(input_vars : Array[String], output_vars : Array[String], _mode : 
 		C2 *= sin(alpha) - pow( 2.0 * beta / PI, 3.0);
 	}
 	
-	float C3 = 0.125 * a / (a + 0.09) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
+	float C3 = 0.125 * sigma2 / (sigma2 + 0.09) * pow((4.0 * alpha * beta) / (PI * PI), 2.0);
 	
 	float L1 = {rho} / PI * (C1 + cos_phi * C2 * tan(beta) + (1.0 - abs(cos_phi)) * C3 * tan((alpha + beta) / 2.0));
-	float L2 = 0.17 * {rho} * {rho} / PI * a / (a + 0.13) * (1.0 - cos_phi * (4.0 * beta * beta) / (PI * PI));
+	float L2 = 0.17 * {rho} * {rho} / PI * sigma2 / (sigma2 + 0.13) * (1.0 - cos_phi * (4.0 * beta * beta) / (PI * PI));
 	
 	float diffuse_oren_nayar = max(min(L1 + L2, 1.0), 0.0) * cNdotL;
 	
